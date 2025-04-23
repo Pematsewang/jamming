@@ -1,61 +1,70 @@
 import React, { useState } from 'react';
-import './App.css';
-import TrackListComponent from './components/TracklistComponent';  // Match the file name exactly
+import SearchBar from './components/SearchBar';
+import SearchResults from './components/SearchResults';
 import Playlist from './components/Playlist';
+import Spotify from './Spotify';             
+
 function App() {
-  // State for managing custom playlist
-  const [playlistName, setPlaylistName] = useState("My Playlist");
-  const [playlist, setPlaylist] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
+  const [playlistTracks, setPlaylistTracks] = useState([]);
+  const [playlistName, setPlaylistName] = useState('New Playlist');
 
-
-  const removeTrack = (trackToRemove) => {
-    setPlaylist(prev => 
-      prev.filter(track => track.id !== trackToRemove.id)
-    );
-  };
-
-  const tracks = [
-    { id: 1, name: 'Song 1', artist: 'Artist 1', album: 'Album 1', uri: 'spotify:track:1' },
-    { id: 2, name: 'Song 2', artist: 'Artist 2', album: 'Album 2', uri: 'spotify:track:2' },
-    { id: 3, name: 'Song 3', artist: 'Artist 3', album: 'Album 3', uri: 'spotify:track:3' },
-  ];
-  
-
-  // Function to add a track to the playlist
-  const addSongToPlaylist = (track) => {
-    setPlaylist([...playlist, track]);  // Add the selected track to the playlist
-  };
-
-  const savePlaylist = () => {
-    const trackUris = playlist.map(track => track.uri);
-    console.log("Saving the following URIs to Spotify:", trackUris);
-  
-    // Reset playlist and name after "saving"
-    setPlaylist([]);
-    setPlaylistName("New Playlist");
+  // Search Spotify API and update search results
+  const search = (term) => {
+    console.log('Searching for:', term); 
+    Spotify.search(term).then((results) => {
+      console.log('Got results:', results); 
+      setSearchResults(results);
+    });
   };
   
+ 
 
+  
+  const addTrack = (track) => {
+    if (playlistTracks.find(savedTrack => savedTrack.id === track.id)) return;
+    setPlaylistTracks(prev => [...prev, track]);
+  };
+
+  // Remove track from playlist
+  const removeTrack = (track) => {
+    setPlaylistTracks(prev => prev.filter(savedTrack => savedTrack.id !== track.id));
+  };
+
+  // Save playlist to Spotify
+  const savePlaylist = async () => {
+    const trackUris = playlistTracks.map(track => track.uri);
+    if (!trackUris.length) {
+      alert('Add some tracks before saving!');
+      return;
+    }
+    try {
+      await Spotify.savePlaylist(playlistName, trackUris);
+      alert('Playlist saved to Spotify!');
+      setPlaylistName('New Playlist');
+      setPlaylistTracks([]);
+      setSearchResults([]);
+    } catch (error) {
+      alert('Error saving playlist: ' + error.message);
+    }
+  };
 
   return (
     <div className="App">
       <h1>Jamming</h1>
-      
-      <TrackListComponent 
-        tracks={tracks} 
-        addSongToPlaylist={addSongToPlaylist} 
-      />
-      
-      <Playlist
-        playlist={playlist}
-        removeTrack={removeTrack}
-        playlistName={playlistName}
-        setPlaylistName={setPlaylistName}
-        savePlaylist={savePlaylist}
-      />
+      <SearchBar onSearch={search} />
+      <div className="App-playlist">
+        <SearchResults searchResults={searchResults} onAdd={addTrack} />
+        <Playlist
+          playlist={playlistTracks}
+          removeTrack={removeTrack}
+          playlistName={playlistName}
+          setPlaylistName={setPlaylistName}
+          savePlaylist={savePlaylist}
+        />
+      </div>
     </div>
   );
-  
 }
 
 export default App;
